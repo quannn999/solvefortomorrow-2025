@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mô hình 3D - Gạch Sinh Thái</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            color: white;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 350px;
+            z-index: 100;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+        
+        .control-btn {
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .control-btn.active {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        #stage-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        h2 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+        
+        h3 {
+            color: #81C784;
+            margin-bottom: 8px;
+        }
+        
+        .ingredient {
+            display: inline-block;
+            background: rgba(76, 175, 80, 0.3);
+            padding: 5px 10px;
+            margin: 3px;
+            border-radius: 15px;
+            font-size: 12px;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 200;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Đang khởi tạo mô hình 3D...</p>
+        </div>
+        
+        <div id="info-panel">
+            <h2>🧱 Gạch Sinh Thái</h2>
+            <p><strong>Đất sét + Bã cà phê + Vi sinh vật quang hợp</strong></p>
+            
+            <div id="stage-info">
+                <h3>Bước 1: Chuẩn bị nguyên liệu</h3>
+                <div>
+                    <span class="ingredient">100g Đất sét</span>
+                    <span class="ingredient">30g Bã cà phê</span>
+                    <span class="ingredient">5ml Vi sinh vật</span>
+                </div>
+                <p style="margin-top: 10px; font-size: 13px;">
+                    Đất sét tạo cấu trúc nền, bã cà phê tăng độ xốp và dinh dưỡng.
+                </p>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <button class="control-btn active" onclick="setStage(1)">Nguyên liệu</button>
+            <button class="control-btn" onclick="setStage(2)">Trộn đều</button>
+            <button class="control-btn" onclick="setStage(3)">Tạo hình</button>
+            <button class="control-btn" onclick="setStage(4)">Sản phẩm</button>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, controls;
+        let currentStage = 1;
+        let materials = {};
+        let objects = {};
+        let animations = [];
+        
+        // Khởi tạo
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 3, 5);
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Lighting
+            setupLighting();
+            
+            // Materials
+            createMaterials();
+            
+            // Tạo các đối tượng
+            createObjects();
+            
+            // Controls tự tạo
+            setupMouseControls();
+            
+            // Ẩn loading
+            document.getElementById('loading').style.display = 'none';
+            
+            // Bắt đầu animation
+            animate();
+            
+            // Thiết lập stage đầu tiên
+            setStage(1);
+        }
+        
+        function setupLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            // Directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // Point lights
+            const pointLight1 = new THREE.PointLight(0x4CAF50, 0.6, 10);
+            pointLight1.position.set(-3, 3, 3);
+            scene.add(pointLight1);
+            
+            const pointLight2 = new THREE.PointLight(0x8BC34A, 0.4, 8);
+            pointLight2.position.set(3, 2, -3);
+            scene.add(pointLight2);
+        }
+        
+        function createMaterials() {
+            materials.clay = new THREE.MeshLambertMaterial({ 
+                color: 0xcd853f,
+                transparent: true,
+                opacity: 0.9
+            });
+            
+            materials.coffee = new THREE.MeshLambertMaterial({ 
+                color: 0x8B4513,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            materials.microbes = new THREE.MeshPhongMaterial({ 
+                color: 0x4CAF50,
+                transparent: true,
+                opacity: 0.7,
+                emissive: 0x004d00
+            });
+            
+            materials.mixed = new THREE.MeshLambertMaterial({ 
+                color: 0x9E7B3A,
+                transparent: true,
+                opacity: 0.85
+            });
+            
+            materials.brick = new THREE.MeshLambertMaterial({ 
+                color: 0xA0522D,
+                transparent: false
+            });
+            
+            materials.water = new THREE.MeshPhongMaterial({ 
+                color: 0x87CEEB,
+                transparent: true,
+                opacity: 0.6
+            });
+        }
+        
+        function createObjects() {
+            objects.clayBowl = createBowl(materials.clay, new THREE.Vector3(-2, 0, 1));
+            objects.coffeeBowl = createBowl(materials.coffee, new THREE.Vector3(0, 0, 1));
+            objects.microbeBottle = createBottle(materials.microbes, new THREE.Vector3(2, 0, 1));
+            objects.waterBottle = createBottle(materials.water, new THREE.Vector3(2.5, 0, -1));
+            
+            objects.mixingBowl = createLargeBowl(materials.mixed, new THREE.Vector3(0, 0, -1));
+            objects.mold = createMold(new THREE.Vector3(-2, 0, -1));
+            objects.finishedBrick = createBrick(materials.brick, new THREE.Vector3(2, 0.2, -2));
+            
+            // Particles cho vi sinh vật
+            createMicrobeParticles();
+        }
+        
+        function createBowl(material, position) {
+            const geometry = new THREE.SphereGeometry(0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            const bowl = new THREE.Mesh(geometry, material);
+            bowl.position.copy(position);
+            bowl.castShadow = true;
+            bowl.receiveShadow = true;
+            scene.add(bowl);
+            return bowl;
+        }
+        
+        function createLargeBowl(material, position) {
+            const geometry = new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+            const bowl = new THREE.Mesh(geometry, material);
+            bowl.position.copy(position);
+            bowl.castShadow = true;
+            bowl.receiveShadow = true;
+            scene.add(bowl);
+            return bowl;
+        }
+        
+        function createBottle(material, position) {
+            const geometry = new THREE.CylinderGeometry(0.2, 0.3, 1, 8);
+            const bottle = new THREE.Mesh(geometry, material);
+            bottle.position.copy(position);
+            bottle.castShadow = true;
+            scene.add(bottle);
+            return bottle;
+        }
+        
+        function createMold(position) {
+            const geometry = new THREE.BoxGeometry(1, 0.5, 0.6);
+            const material = new THREE.MeshLambertMaterial({ 
+                color: 0x696969,
+                transparent: true,
+                opacity: 0.7
+            });
+            const mold = new THREE.Mesh(geometry, material);
+            mold.position.copy(position);
+            scene.add(mold);
+            return mold;
+        }
+        
+        function createBrick(material, position) {
+            const geometry = new THREE.BoxGeometry(0.8, 0.4, 0.5);
+            const brick = new THREE.Mesh(geometry, material);
+            brick.position.copy(position);
+            brick.castShadow = true;
+            brick.receiveShadow = true;
+            scene.add(brick);
+            return brick;
+        }
+        
+        function createMicrobeParticles() {
+            const geometry = new THREE.SphereGeometry(0.02, 8, 6);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0x4CAF50,
+                emissive: 0x004d00
+            });
+            
+            objects.particles = [];
+            for (let i = 0; i < 20; i++) {
+                const particle = new THREE.Mesh(geometry, material);
+                particle.position.set(
+                    (Math.random() - 0.5) * 4,
+                    Math.random() * 2 + 1,
+                    (Math.random() - 0.5) * 4
+                );
+                particle.visible = false;
+                scene.add(particle);
+                objects.particles.push(particle);
+            }
+        }
+        
+        function setStage(stage) {
+            currentStage = stage;
+            
+            // Reset visibility
+            Object.values(objects).forEach(obj => {
+                if (obj && obj.visible !== undefined) {
+                    obj.visible = false;
+                } else if (Array.isArray(obj)) {
+                    obj.forEach(p => p.visible = false);
+                }
+            });
+            
+            // Update buttons
+            document.querySelectorAll('.control-btn').forEach((btn, index) => {
+                btn.classList.toggle('active', index + 1 === stage);
+            });
+            
+            // Update info panel
+            updateInfoPanel(stage);
+            
+            // Show relevant objects
+            switch(stage) {
+                case 1:
+                    objects.clayBowl.visible = true;
+                    objects.coffeeBowl.visible = true;
+                    objects.microbeBottle.visible = true;
+                    objects.waterBottle.visible = true;
+                    break;
+                case 2:
+                    objects.mixingBowl.visible = true;
+                    objects.particles.forEach(p => p.visible = true);
+                    animateMixing();
+                    break;
+                case 3:
+                    objects.mold.visible = true;
+                    objects.mixingBowl.visible = true;
+                    break;
+                case 4:
+                    objects.finishedBrick.visible = true;
+                    animateBrickGlow();
+                    break;
+            }
+        }
+        
+        function updateInfoPanel(stage) {
+            const stageInfo = document.getElementById('stage-info');
+            const stages = {
+                1: {
+                    title: 'Bước 1: Chuẩn bị nguyên liệu',
+                    content: 'Đất sét tạo cấu trúc nền, bã cà phê tăng độ xốp và dinh dưỡng.',
+                    ingredients: ['100g Đất sét', '30g Bã cà phê', '5ml Vi sinh vật']
+                },
+                2: {
+                    title: 'Bước 2: Trộn đều hỗn hợp',
+                    content: 'Pha loãng vi sinh vật với nước, từ từ thêm vào và nhào kỹ.',
+                    ingredients: ['Hỗn hợp đồng nhất', 'Vi sinh vật hoạt động']
+                },
+                3: {
+                    title: 'Bước 3: Tạo hình bằng khuôn',
+                    content: 'Sử dụng khuôn gạch mini để tạo hình chính xác.',
+                    ingredients: ['Khuôn gạch', 'Hỗn hợp đã trộn']
+                },
+                4: {
+                    title: 'Bước 4: Sản phẩm hoàn thiện',
+                    content: 'Để khô tự nhiên 5-7 ngày. Gạch có khả năng hấp thụ CO₂.',
+                    ingredients: ['Gạch hoàn thiện', 'Thân thiện môi trường']
+                }
+            };
+            
+            const stage_data = stages[stage];
+            stageInfo.innerHTML = `
+                <h3>${stage_data.title}</h3>
+                <div>
+                    ${stage_data.ingredients.map(ing => `<span class="ingredient">${ing}</span>`).join('')}
+                </div>
+                <p style="margin-top: 10px; font-size: 13px;">${stage_data.content}</p>
+            `;
+        }
+        
+        function animateMixing() {
+            objects.particles.forEach((particle, index) => {
+                const time = Date.now() * 0.001 + index;
+                particle.position.x = Math.sin(time) * 0.5;
+                particle.position.z = Math.cos(time) * 0.5;
+                particle.position.y = 0.5 + Math.sin(time * 2) * 0.2;
+            });
+        }
+        
+        function animateBrickGlow() {
+            const time = Date.now() * 0.002;
+            const intensity = 0.5 + Math.sin(time) * 0.3;
+            objects.finishedBrick.material.emissive.setScalar(intensity * 0.1);
+        }
+        
+        // Mouse controls
+        let mouseDown = false;
+        let mouseX = 0;
+        let mouseY = 0;
+        let targetRotationX = 0;
+        let targetRotationY = 0;
+        let rotationX = 0;
+        let rotationY = 0;
+        
+        function setupMouseControls() {
+            renderer.domElement.addEventListener('mousedown', onMouseDown, false);
+            renderer.domElement.addEventListener('mousemove', onMouseMove, false);
+            renderer.domElement.addEventListener('mouseup', onMouseUp, false);
+            renderer.domElement.addEventListener('wheel', onMouseWheel, false);
+        }
+        
+        function onMouseDown(event) {
+            mouseDown = true;
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+        
+        function onMouseMove(event) {
+            if (!mouseDown) return;
+            
+            const deltaX = event.clientX - mouseX;
+            const deltaY = event.clientY - mouseY;
+            
+            targetRotationY += deltaX * 0.01;
+            targetRotationX += deltaY * 0.01;
+            
+            mouseX = event.clientX;
+            mouseY = event.clientY;
+        }
+        
+        function onMouseUp() {
+            mouseDown = false;
+        }
+        
+        function onMouseWheel(event) {
+            camera.position.multiplyScalar(event.deltaY > 0 ? 1.1 : 0.9);
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Smooth rotation
+            rotationX += (targetRotationX - rotationX) * 0.05;
+            rotationY += (targetRotationY - rotationY) * 0.05;
+            
+            // Apply rotation to camera
+            const radius = camera.position.length();
+            camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
+            camera.position.y = radius * Math.sin(rotationX);
+            camera.position.z = radius * Math.cos(rotationY) * Math.cos(rotationX);
+            camera.lookAt(scene.position);
+            
+            // Stage-specific animations
+            if (currentStage === 2) {
+                animateMixing();
+            } else if (currentStage === 4) {
+                animateBrickGlow();
+            }
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Responsive
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Khởi chạy
+        init();
+    </script>
+</body>
+</html>
