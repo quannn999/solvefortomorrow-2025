@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gạch Mica 3D Chứa Vi Sinh Vật</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0a0a0a, #1a2332);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            max-width: 350px;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .layer-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid;
+        }
+        
+        .layer-outer { border-left-color: #00ff88; }
+        .layer-inner { border-left-color: #44ccff; }
+        .layer-gel { border-left-color: #ffaa00; }
+        .layer-microbes { border-left-color: #ff4488; }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        button.active {
+            background: rgba(0, 255, 136, 0.3);
+            border-color: #00ff88;
+        }
+        
+        .title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #00ff88;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .spec {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+        
+        #legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            z-index: 100;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+            box-shadow: 0 0 10px currentColor;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="info-panel">
+            <div class="title">Gạch Mica Vi Sinh Vật</div>
+            
+            <div class="layer-info layer-outer">
+                <strong>Lớp Mica Ngoài</strong>
+                <div class="spec">Độ dày: 2mm | Độ trong suốt: 95%</div>
+                <div class="spec">Chức năng: Bảo vệ và truyền ánh sáng</div>
+            </div>
+            
+            <div class="layer-info layer-inner">
+                <strong>Lớp Mica Trong</strong>
+                <div class="spec">Độ dày: 1.5mm | Kết cấu lưới</div>
+                <div class="spec">Chức năng: Tạo khung cố định gel</div>
+            </div>
+            
+            <div class="layer-info layer-gel">
+                <strong>Gel Nuôi Cấy</strong>
+                <div class="spec">Thành phần: Agar + Dinh dưỡng</div>
+                <div class="spec">Chức năng: Môi trường sống vi sinh vật</div>
+            </div>
+            
+            <div class="layer-info layer-microbes">
+                <strong>Vi Sinh Vật</strong>
+                <div class="spec">Loại: Tảo lục, tảo lam</div>
+                <div class="spec">Mật độ: 10⁶-10⁷ tế bào/ml</div>
+            </div>
+        </div>
+        
+        <div id="legend">
+            <div style="font-weight: bold; margin-bottom: 10px;">Chú thích màu sắc</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00ff88;"></div>
+                <span>Mica ngoài</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #44ccff;"></div>
+                <span>Mica trong</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ffaa00;"></div>
+                <span>Gel nuôi cấy</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff4488;"></div>
+                <span>Vi sinh vật</span>
+            </div>
+        </div>
+        
+        <div id="controls">
+            <button id="explodeBtn">Tách lớp</button>
+            <button id="rotateBtn" class="active">Xoay tự động</button>
+            <button id="lightBtn">Hiệu ứng ánh sáng</button>
+            <button id="microbesBtn">Hoạt động vi sinh vật</button>
+        </div>
+    </div>
+
+    <script>
+        // Khởi tạo Three.js
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // Thiết lập camera
+        camera.position.set(8, 6, 8);
+        camera.lookAt(0, 0, 0);
+
+        // Nhóm chính cho gạch mica
+        const micaBrick = new THREE.Group();
+        scene.add(micaBrick);
+
+        // Biến trạng thái
+        let isExploded = false;
+        let isRotating = true;
+        let lightAnimation = false;
+        let microbesAnimation = false;
+
+        // Tạo materials
+        const outerMicaMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x00ff88,
+            transparent: true,
+            opacity: 0.3,
+            transmission: 0.9,
+            thickness: 0.1,
+            roughness: 0.1,
+            metalness: 0.1
+        });
+
+        const innerMicaMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0x44ccff,
+            transparent: true,
+            opacity: 0.4,
+            transmission: 0.8,
+            thickness: 0.05,
+            roughness: 0.2,
+            metalness: 0.1
+        });
+
+        const gelMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xffaa00,
+            transparent: true,
+            opacity: 0.6,
+            transmission: 0.7,
+            thickness: 0.2,
+            roughness: 0.3,
+            metalness: 0.0
+        });
+
+        // Tạo lớp mica ngoài (6 mặt)
+        const outerMicaGroup = new THREE.Group();
+        const micaThickness = 0.1;
+        const brickSize = { width: 4, height: 2, depth: 2 };
+
+        // Tạo 6 mặt mica ngoài
+        const faces = [
+            { pos: [0, 0, brickSize.depth/2 + micaThickness/2], size: [brickSize.width, brickSize.height, micaThickness] }, // front
+            { pos: [0, 0, -brickSize.depth/2 - micaThickness/2], size: [brickSize.width, brickSize.height, micaThickness] }, // back
+            { pos: [brickSize.width/2 + micaThickness/2, 0, 0], size: [micaThickness, brickSize.height, brickSize.depth] }, // right
+            { pos: [-brickSize.width/2 - micaThickness/2, 0, 0], size: [micaThickness, brickSize.height, brickSize.depth] }, // left
+            { pos: [0, brickSize.height/2 + micaThickness/2, 0], size: [brickSize.width, micaThickness, brickSize.depth] }, // top
+            { pos: [0, -brickSize.height/2 - micaThickness/2, 0], size: [brickSize.width, micaThickness, brickSize.depth] } // bottom
+        ];
+
+        faces.forEach(face => {
+            const geometry = new THREE.BoxGeometry(...face.size);
+            const mesh = new THREE.Mesh(geometry, outerMicaMaterial);
+            mesh.position.set(...face.pos);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            outerMicaGroup.add(mesh);
+        });
+
+        // Tạo lớp mica trong
+        const innerMicaGroup = new THREE.Group();
+        const innerGeometry = new THREE.BoxGeometry(brickSize.width - 0.2, brickSize.height - 0.2, brickSize.depth - 0.2);
+        const innerMica = new THREE.Mesh(innerGeometry, innerMicaMaterial);
+        innerMica.castShadow = true;
+        innerMica.receiveShadow = true;
+        innerMicaGroup.add(innerMica);
+
+        // Tạo gel nuôi cấy
+        const gelGroup = new THREE.Group();
+        const gelGeometry = new THREE.BoxGeometry(brickSize.width - 0.4, brickSize.height - 0.4, brickSize.depth - 0.4);
+        const gel = new THREE.Mesh(gelGeometry, gelMaterial);
+        gel.castShadow = true;
+        gel.receiveShadow = true;
+        gelGroup.add(gel);
+
+        // Tạo vi sinh vật (các hạt nhỏ)
+        const microbesGroup = new THREE.Group();
+        const microbesMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xff4488,
+            transparent: true,
+            opacity: 0.8,
+            emissive: 0xff2244,
+            emissiveIntensity: 0.2
+        });
+
+        for(let i = 0; i < 200; i++) {
+            const size = Math.random() * 0.05 + 0.02;
+            const microbeGeometry = new THREE.SphereGeometry(size, 8, 6);
+            const microbe = new THREE.Mesh(microbeGeometry, microbesMaterial);
+            
+            microbe.position.set(
+                (Math.random() - 0.5) * (brickSize.width - 0.6),
+                (Math.random() - 0.5) * (brickSize.height - 0.6),
+                (Math.random() - 0.5) * (brickSize.depth - 0.6)
+            );
+            
+            microbe.userData = {
+                originalPosition: microbe.position.clone(),
+                speed: Math.random() * 0.02 + 0.01,
+                direction: new THREE.Vector3(
+                    Math.random() - 0.5,
+                    Math.random() - 0.5,
+                    Math.random() - 0.5
+                ).normalize()
+            };
+            
+            microbesGroup.add(microbe);
+        }
+
+        // Thêm các nhóm vào gạch mica
+        micaBrick.add(outerMicaGroup);
+        micaBrick.add(innerMicaGroup);
+        micaBrick.add(gelGroup);
+        micaBrick.add(microbesGroup);
+
+        // Ánh sáng
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(5, 5, 5);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 2048;
+        directionalLight.shadow.mapSize.height = 2048;
+        scene.add(directionalLight);
+
+        // Ánh sáng tạo hiệu ứng sinh học
+        const bioLight1 = new THREE.PointLight(0x00ff88, 0.5, 10);
+        bioLight1.position.set(2, 1, 2);
+        scene.add(bioLight1);
+
+        const bioLight2 = new THREE.PointLight(0xff4488, 0.3, 8);
+        bioLight2.position.set(-2, -1, -2);
+        scene.add(bioLight2);
+
+        // Event handlers
+        document.getElementById('explodeBtn').addEventListener('click', () => {
+            isExploded = !isExploded;
+            
+            if(isExploded) {
+                outerMicaGroup.position.set(0, 0, 3);
+                innerMicaGroup.position.set(0, 0, 1);
+                gelGroup.position.set(0, 0, -1);
+                microbesGroup.position.set(0, 0, -3);
+                document.getElementById('explodeBtn').textContent = 'Ghép lại';
+                document.getElementById('explodeBtn').classList.add('active');
+            } else {
+                outerMicaGroup.position.set(0, 0, 0);
+                innerMicaGroup.position.set(0, 0, 0);
+                gelGroup.position.set(0, 0, 0);
+                microbesGroup.position.set(0, 0, 0);
+                document.getElementById('explodeBtn').textContent = 'Tách lớp';
+                document.getElementById('explodeBtn').classList.remove('active');
+            }
+        });
+
+        document.getElementById('rotateBtn').addEventListener('click', () => {
+            isRotating = !isRotating;
+            document.getElementById('rotateBtn').classList.toggle('active');
+            document.getElementById('rotateBtn').textContent = isRotating ? 'Dừng xoay' : 'Xoay tự động';
+        });
+
+        document.getElementById('lightBtn').addEventListener('click', () => {
+            lightAnimation = !lightAnimation;
+            document.getElementById('lightBtn').classList.toggle('active');
+            document.getElementById('lightBtn').textContent = lightAnimation ? 'Tắt ánh sáng' : 'Hiệu ứng ánh sáng';
+        });
+
+        document.getElementById('microbesBtn').addEventListener('click', () => {
+            microbesAnimation = !microbesAnimation;
+            document.getElementById('microbesBtn').classList.toggle('active');
+            document.getElementById('microbesBtn').textContent = microbesAnimation ? 'Dừng vi sinh vật' : 'Hoạt động vi sinh vật';
+        });
+
+        // Animation loop
+        let time = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            // Xoay tự động
+            if(isRotating) {
+                micaBrick.rotation.y += 0.005;
+                micaBrick.rotation.x = Math.sin(time * 0.5) * 0.1;
+            }
+
+            // Hiệu ứng ánh sáng
+            if(lightAnimation) {
+                bioLight1.intensity = 0.5 + Math.sin(time * 2) * 0.3;
+                bioLight2.intensity = 0.3 + Math.cos(time * 1.5) * 0.2;
+                bioLight1.position.x = 2 + Math.sin(time) * 1;
+                bioLight2.position.z = -2 + Math.cos(time * 0.7) * 1;
+            }
+
+            // Hoạt động vi sinh vật
+            if(microbesAnimation) {
+                microbesGroup.children.forEach(microbe => {
+                    const userData = microbe.userData;
+                    microbe.position.add(userData.direction.clone().multiplyScalar(userData.speed));
+                    
+                    // Bounce off boundaries
+                    if(Math.abs(microbe.position.x) > (brickSize.width - 0.6) / 2) {
+                        userData.direction.x *= -1;
+                    }
+                    if(Math.abs(microbe.position.y) > (brickSize.height - 0.6) / 2) {
+                        userData.direction.y *= -1;
+                    }
+                    if(Math.abs(microbe.position.z) > (brickSize.depth - 0.6) / 2) {
+                        userData.direction.z *= -1;
+                    }
+                    
+                    // Thay đổi màu sắc theo thời gian
+                    const hue = (time + microbe.id * 0.1) % 1;
+                    microbe.material.color.setHSL(hue, 0.8, 0.6);
+                    microbe.material.emissive.setHSL(hue, 1, 0.2);
+                });
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Xử lý resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Bắt đầu animation
+        animate();
+
+        // Mouse controls cho camera
+        let mouseX = 0, mouseY = 0;
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - window.innerWidth / 2) / 1000;
+            mouseY = (event.clientY - window.innerHeight / 2) / 1000;
+            
+            camera.position.x = 8 + mouseX * 2;
+            camera.position.y = 6 + mouseY * 2;
+            camera.lookAt(0, 0, 0);
+        });
+    </script>
+</body>
+</html>
