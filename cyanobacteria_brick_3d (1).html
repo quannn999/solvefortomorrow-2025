@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gạch Tảo Lam - Thạch Agar 3D - Mô phỏng Khoa học</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            color: white;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        .ui-panel {
+            position: absolute;
+            background: rgba(0, 20, 40, 0.9);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            pointer-events: auto;
+            box-shadow: 0 8px 32px rgba(0, 255, 136, 0.2);
+        }
+        
+        #control-panel {
+            top: 20px;
+            left: 20px;
+            width: 320px;
+        }
+        
+        #stats-panel {
+            top: 20px;
+            right: 20px;
+            width: 280px;
+        }
+        
+        #time-panel {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            text-align: center;
+        }
+        
+        .panel-title {
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-label {
+            display: block;
+            color: #ffffff;
+            font-size: 14px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .slider-container {
+            position: relative;
+            margin-bottom: 10px;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #ff6b35, #f7931e, #00ff88);
+            outline: none;
+            cursor: pointer;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #00ff88;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.8);
+        }
+        
+        .slider-value {
+            position: absolute;
+            top: -30px;
+            right: 0;
+            background: rgba(0, 255, 136, 0.8);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .stat-label {
+            color: #cccccc;
+            font-size: 14px;
+        }
+        
+        .stat-value {
+            color: #00ff88;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .stat-change {
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        
+        .positive { color: #00ff88; }
+        .negative { color: #ff4757; }
+        
+        .time-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .time-btn {
+            padding: 12px 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 25px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            font-size: 14px;
+        }
+        
+        .time-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .time-btn.active {
+            background: linear-gradient(45deg, #00ff88, #00cc6a);
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.4);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b35, #f7931e, #00ff88);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+        
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .day-indicator {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+        }
+        
+        .loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+        
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(0, 255, 136, 0.3);
+            border-top: 3px solid #00ff88;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .environment-info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 20, 40, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            pointer-events: auto;
+        }
+        
+        .sun-indicator {
+            color: #ffd700;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading-screen" class="loading-screen">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h2>🧱 Đang khởi tạo mô hình Gạch Tảo Lam</h2>
+                <p>Chuẩn bị môi trường 3D và vi sinh vật...</p>
+            </div>
+        </div>
+        
+        <div id="ui-overlay">
+            <!-- Panel điều khiển -->
+            <div id="control-panel" class="ui-panel">
+                <div class="panel-title">🎛️ Điều khiển Môi trường</div>
+                
+                <div class="control-group">
+                    <label class="control-label">☀️ Cường độ ánh sáng</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="light-intensity" min="0" max="100" value="80">
+                        <span class="slider-value" id="light-value">80%</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">🌡️ Nhiệt độ môi trường</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="temperature" min="20" max="45" value="35">
+                        <span class="slider-value" id="temp-value">35°C</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">💨 Tốc độ gió</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="wind-speed" min="0" max="20" value="5">
+                        <span class="slider-value" id="wind-value">5 m/s</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label class="control-label">💧 Độ ẩm không khí</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="humidity" min="30" max="90" value="60">
+                        <span class="slider-value" id="humidity-value">60%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel thống kê -->
+            <div id="stats-panel" class="ui-panel">
+                <div class="panel-title">📊 Thống kê Thời gian Thực</div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Nhiệt độ bề mặt:</span>
+                    <span class="stat-value" id="surface-temp">35°C</span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Giảm nhiệt:</span>
+                    <span class="stat-value" id="temp-reduction">0°C <span class="stat-change negative" id="temp-change">-</span></span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Độ ẩm tự nhiên:</span>
+                    <span class="stat-value" id="natural-humidity">60% <span class="stat-change" id="humidity-change">-</span></span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Mật độ tảo lam:</span>
+                    <span class="stat-value" id="algae-density">5% <span class="stat-change positive" id="algae-change">+0%</span></span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Hiệu suất quang hợp:</span>
+                    <span class="stat-value" id="photosynthesis">12% <span class="stat-change positive" id="photo-change">+0%</span></span>
+                </div>
+                
+                <div class="stat-item">
+                    <span class="stat-label">Tiết kiệm năng lượng:</span>
+                    <span class="stat-value" id="energy-saving">0 kWh <span class="stat-change positive" id="energy-change">+0</span></span>
+                </div>
+            </div>
+            
+            <!-- Panel thời gian -->
+            <div id="time-panel" class="ui-panel">
+                <div class="panel-title">⏰ Quá trình Phát triển</div>
+                <div class="day-indicator" id="day-indicator">Ngày 0 - Khởi đầu</div>
+                
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+                
+                <div class="time-controls">
+                    <button class="time-btn active" onclick="setDay(0)">Ngày 0</button>
+                    <button class="time-btn" onclick="setDay(1)">Ngày 1</button>
+                    <button class="time-btn" onclick="setDay(2)">Ngày 2</button>
+                    <button class="time-btn" onclick="setDay(3)">Ngày 3</button>
+                    <button class="time-btn" onclick="setDay(4)">Ngày 4</button>
+                    <button class="time-btn" onclick="toggleAutoPlay()">▶️ Tự động</button>
+                </div>
+            </div>
+            
+            <!-- Thông tin môi trường -->
+            <div class="environment-info">
+                <div class="sun-indicator" id="sun-indicator">☀️ Mặt trời: Cao điểm</div>
+                <div style="font-size: 12px; color: #cccccc;">Thời gian: <span id="sim-time">12:00</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let scene, camera, renderer, bricks = [], sun, animationId;
+        let currentDay = 0;
+        let autoPlay = false;
+        let autoPlayInterval;
+        let timeOfDay = 12; // 0-24 hours
+        let simulationSpeed = 1;
+        
+        // Thông số môi trường
+        let environment = {
+            lightIntensity: 80,
+            temperature: 35,
+            windSpeed: 5,
+            humidity: 60
+        };
+        
+        // Dữ liệu quá trình phát triển
+        const developmentData = {
+            0: { algaeDensity: 5, tempReduction: 0, photosynthesis: 12, color: 0xd2691e, humidity: 60 },
+            1: { algaeDensity: 15, tempReduction: 2, photosynthesis: 25, color: 0xa0722e, humidity: 65 },
+            2: { algaeDensity: 35, tempReduction: 4, photosynthesis: 45, color: 0x6b8e23, humidity: 70 },
+            3: { algaeDensity: 65, tempReduction: 7, photosynthesis: 70, color: 0x228b22, humidity: 75 },
+            4: { algaeDensity: 90, tempReduction: 10, photosynthesis: 85, color: 0x006400, humidity: 80 }
+        };
+        
+        function init() {
+            // Tạo scene
+            scene = new THREE.Scene();
+            
+            // Tạo camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(8, 6, 10);
+            camera.lookAt(0, 0, 0);
+            
+            // Tạo renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Thiết lập ánh sáng
+            setupLighting();
+            
+            // Tạo môi trường
+            createEnvironment();
+            
+            // Tạo gạch
+            createBricks();
+            
+            // Thiết lập controls
+            setupControls();
+            
+            // Ẩn loading screen
+            setTimeout(() => {
+                document.getElementById('loading-screen').style.display = 'none';
+                animate();
+            }, 2000);
+        }
+        
+        function setupLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.3);
+            scene.add(ambientLight);
+            
+            // Sun (directional light)
+            sun = new THREE.DirectionalLight(0xffffff, 2);
+            sun.position.set(10, 10, 5);
+            sun.castShadow = true;
+            sun.shadow.mapSize.width = 4096;
+            sun.shadow.mapSize.height = 4096;
+            sun.shadow.camera.near = 0.5;
+            sun.shadow.camera.far = 50;
+            sun.shadow.camera.left = -15;
+            sun.shadow.camera.right = 15;
+            sun.shadow.camera.top = 15;
+            sun.shadow.camera.bottom = -15;
+            scene.add(sun);
+            
+            // Sky gradient
+            const skyGeometry = new THREE.SphereGeometry(100, 32, 32);
+            const skyMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    lightIntensity: { value: environment.lightIntensity / 100 }
+                },
+                vertexShader: `
+                    varying vec3 vWorldPosition;
+                    void main() {
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    uniform float time;
+                    uniform float lightIntensity;
+                    varying vec3 vWorldPosition;
+                    
+                    void main() {
+                        vec3 direction = normalize(vWorldPosition);
+                        float sun = pow(max(0.0, dot(direction, normalize(vec3(0.5, 0.8, 0.2)))), 16.0);
+                        vec3 sky = mix(vec3(0.1, 0.2, 0.4), vec3(0.6, 0.8, 1.0), direction.y * 0.5 + 0.5);
+                        sky = mix(sky, vec3(1.0, 0.9, 0.7), sun);
+                        sky *= lightIntensity;
+                        gl_Color = vec4(sky, 1.0);
+                    }
+                `,
+                side: THREE.BackSide
+            });
+            const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+            scene.add(sky);
+        }
+        
+        function createEnvironment() {
+            // Nền đất với texture
+            const groundGeometry = new THREE.PlaneGeometry(30, 30, 32, 32);
+            const groundMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x4a5d23,
+                transparent: true,
+                opacity: 0.8
+            });
+            
+            // Thêm độ gồ ghề cho đất
+            const positions = groundGeometry.attributes.position.array;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i + 2] += Math.random() * 0.1 - 0.05;
+            }
+            groundGeometry.attributes.position.needsUpdate = true;
+            groundGeometry.computeVertexNormals();
+            
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            
+            // Thêm một số cây xung quanh
+            for (let i = 0; i < 8; i++) {
+                const tree = createTree();
+                tree.position.set(
+                    (Math.random() - 0.5) * 25,
+                    -2,
+                    (Math.random() - 0.5) * 25
+                );
+                scene.add(tree);
+            }
+        }
+        
+        function createTree() {
+            const tree = new THREE.Group();
+            
+            // Thân cây
+            const trunkGeometry = new THREE.CylinderGeometry(0.1, 0.15, 2, 8);
+            const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8b4513 });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.y = 1;
+            trunk.castShadow = true;
+            tree.add(trunk);
+            
+            // Lá cây
+            const leavesGeometry = new THREE.SphereGeometry(0.8, 8, 8);
+            const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228b22 });
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.y = 2.5;
+            leaves.castShadow = true;
+            tree.add(leaves);
+            
+            return tree;
+        }
+        
+        function createBricks() {
+            // Xóa gạch cũ
+            bricks.forEach(brick => scene.remove(brick));
+            bricks = [];
+            
+            // Tạo hàng gạch (4x3 grid)
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const brick = createSingleBrick(col, row);
+                    scene.add(brick);
+                    bricks.push(brick);
+                }
+            }
+        }
+        
+        function createSingleBrick(col, row) {
+            const group = new THREE.Group();
+            const data = developmentData[currentDay];
+            
+            // Tạo khối gạch chính
+            const brickGeometry = new THREE.BoxGeometry(1.8, 0.8, 1.2);
+            const brickMaterial = new THREE.MeshPhongMaterial({ 
+                color: data.color,
+                shininess: 30 + data.algaeDensity,
+                specular: 0x111111
+            });
+            
+            const brickMesh = new THREE.Mesh(brickGeometry, brickMaterial);
+            brickMesh.position.set(col * 2.5 - 3.75, row * 1.2 - 1.2, 0);
+            brickMesh.castShadow = true;
+            brickMesh.receiveShadow = true;
+            
+            // Tạo lỗ trên gạch (3x2 = 6 lỗ)
+            for (let i = 0; i < 6; i++) {
+                const holeGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.9, 12);
+                const holeMaterial = new THREE.MeshPhongMaterial({ 
+                    color: currentDay > 0 ? 0x004d00 : 0x654321,
+                    transparent: true,
+                    opacity: 0.9
+                });
+                const hole = new THREE.Mesh(holeGeometry, holeMaterial);
+                hole.position.set(
+                    (i % 3 - 1) * 0.5,
+                    0,
+                    (Math.floor(i / 3) - 0.5) * 0.4
+                );
+                hole.rotation.x = Math.PI / 2;
+                brickMesh.add(hole);
+                
+                // Thêm tảo lam trong lỗ
+                if (currentDay > 0) {
+                    const algaeCount = Math.floor(data.algaeDensity / 10);
+                    for (let j = 0; j < algaeCount; j++) {
+                        const algae = createAlgaeParticle(data.algaeDensity);
+                        algae.position.set(
+                            (Math.random() - 0.5) * 0.2,
+                            (Math.random() - 0.5) * 0.3,
+                            (Math.random() - 0.5) * 0.2
+                        );
+                        hole.add(algae);
+                    }
+                }
+            }
+            
+            group.add(brickMesh);
+            
+            // Thêm hiệu ứng nhiệt
+            const thermalEffect = createThermalEffect(data);
+            thermalEffect.position.copy(brickMesh.position);
+            group.add(thermalEffect);
+            
+            return group;
+        }
+        
+        function createAlgaeParticle(density) {
+            const algae = new THREE.Group();
+            const intensity = density / 100;
+            
+            // Hạt tảo chính
+            const particleGeometry = new THREE.SphereGeometry(0.02 + intensity * 0.03, 6, 6);
+            const particleMaterial = new THREE.MeshPhongMaterial({ 
+                color: new THREE.Color().setHSL(0.3, 0.8, 0.3 + intensity * 0.4),
+                emissive: new THREE.Color().setHSL(0.3, 0.5, intensity * 0.1),
+                transparent: true,
+                opacity: 0.7 + intensity * 0.3
+            });
+            const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+            algae.add(particle);
+            
+            // Hiệu ứng phát sáng
+            if (intensity > 0.3) {
+                const glowGeometry = new THREE.SphereGeometry(0.05, 8, 8);
+                const glowMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x00ff44,
+                    transparent: true,
+                    opacity: intensity * 0.2
+                });
+                const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                algae.add(glow);
+            }
+            
+            return algae;
+        }
+        
+        function createThermalEffect(data) {
+            const thermalGroup = new THREE.Group();
+            const particleCount = currentDay === 0 ? 8 : Math.max(2, 8 - data.tempReduction);
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particleGeometry = new THREE.SphereGeometry(0.01, 4, 4);
+                const particleMaterial = new THREE.MeshBasicMaterial({ 
+                    color: currentDay === 0 ? 0xff4500 : 0x00bfff,
+                    transparent: true,
+                    opacity: currentDay === 0 ? 0.6 : 0.3
+                });
+                const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+                particle.position.set(
+                    (Math.random() - 0.5) * 2,
+                    Math.random() * 2 + 0.5,
+                    (Math.random() - 0.5) * 2
+                );
+                particle.userData = {
+                    initialY: particle.position.y,
+                    speed: 0.005 + Math.random() * 0.01
+                };
+                thermalGroup.add(particle);
+            }
+            
+            return thermalGroup;
+        }
+        
+        function setupControls() {
+            // Light intensity control
+            document.getElementById('light-intensity').addEventListener('input', (e) => {
+                environment.lightIntensity = parseInt(e.target.value);
+                document.getElementById('light-value').textContent = environment.lightIntensity + '%';
+                updateLighting();
+            });
+            
+            // Temperature control
+            document.getElementById('temperature').addEventListener('input', (e) => {
+                environment.temperature = parseInt(e.target.value);
+                document.getElementById('temp-value').textContent = environment.temperature + '°C';
+                updateEnvironmentalEffects();
+            });
+            
+            // Wind speed control
+            document.getElementById('wind-speed').addEventListener('input', (e) => {
+                environment.windSpeed = parseInt(e.target.value);
+                document.getElementById('wind-value').textContent = environment.windSpeed + ' m/s';
+            });
+            
+            // Humidity control
+            document.getElementById('humidity').addEventListener('input', (e) => {
+                environment.humidity = parseInt(e.target.value);
+                document.getElementById('humidity-value').textContent = environment.humidity + '%';
+            });
+        }
+        
+        function setDay(day) {
+            currentDay = day;
+            
+            // Update UI
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            const dayNames = ['Khởi đầu', 'Nảy mầm', 'Phát triển', 'Thành thục', 'Hoàn thiện'];
+            document.getElementById('day-indicator').textContent = `Ngày ${day} - ${dayNames[day]}`;
+            document.getElementById('progress-fill').style.width = (day / 4 * 100) + '%';
+            
+            // Update statistics
+            updateStatistics();
+            
+            // Recreate bricks with new data
+            createBricks();
+        }
+        
+        function updateStatistics() {
+            const data = developmentData[currentDay];
+            const baseTemp = environment.temperature;
+            const surfaceTemp = baseTemp - data.tempReduction;
+            
+            document.getElementById('surface-temp').textContent = surfaceTemp + '°C';
+            document.getElementById('temp-reduction').textContent = data.tempReduction + '°C';
+            document.getElementById('temp-change').textContent = data.tempReduction > 0 ? `↓${data.tempReduction}°C` : '-';
+            document.getElementById('temp-change').className = data.tempReduction > 0 ? 'stat-change negative' : 'stat-change';
+            
+            document.getElementById('natural-humidity').textContent = data.humidity + '%';
+            document.getElementById('humidity-change').textContent = data.humidity > environment.humidity ? `↑${data.humidity - environment.humidity}%` : '-';
+            document.getElementById('humidity-change').className = data.humidity > environment.humidity ? 'stat-change positive' : 'stat-change';
+            
+            document.getElementById('algae-density').textContent = data.algaeDensity + '%';
+            document.getElementById('algae-change').textContent = `+${data.algaeDensity - developmentData[0].algaeDensity}%`;
+            
+            document.getElementById('photosynthesis').textContent = data.photosynthesis + '%';
+            document.getElementById('photo-change').textContent = `+${data.photosynthesis - developmentData[0].photosynthesis}%`;
+            
+            const energySaving = Math.round(data.tempReduction * 0.5 * 10) / 10; // Estimate kWh saved
+            document.getElementById('energy-saving').textContent = energySaving + ' kWh';
+            document.getElementById('energy-change').textContent = energySaving > 0 ? `+${energySaving}` : '+0';
+        }
+        
+        function toggleAutoPlay() {
+            autoPlay = !autoPlay;
+            const btn = event.target;
+            
+            if (autoPlay) {
+                btn.textContent = '⏸️ Tạm dừng';
+                btn.style.background = 'linear-gradient(45deg, #ff6b35, #f7931e)';
+                startAutoPlay();
+            } else {
+                btn.textContent = '▶️ Tự động';
+                btn.style.background = 'linear-gradient(45deg, #667eea, #764ba2)';
+                stopAutoPlay();
+            }
+        }
+        
+        function startAutoPlay() {
+            autoPlayInterval = setInterval(() => {
+                currentDay = (currentDay + 1) % 5;
+                
+                // Update active button
+                document.querySelectorAll('.time-btn').forEach((btn, index) => {
+                    btn.classList.remove('active');
+                    if (index === currentDay) btn.classList.add('active');
+                });
+                
+                const dayNames = ['Khởi đầu', 'Nảy mầm', 'Phát triển', 'Thành thục', 'Hoàn thiện'];
+                document.getElementById('day-indicator').textContent = `Ngày ${currentDay} - ${dayNames[currentDay]}`;
+                document.getElementById('progress-fill').style.width = (currentDay / 4 * 100) + '%';
+                
+                updateStatistics();
+                createBricks();
+            }, 3000);
+        }
+        
+        function stopAutoPlay() {
+            if (autoPlayInterval) {
+                clearInterval(autoPlayInterval);
+                autoPlayInterval = null;
+            }
+        }
+        
+        function updateLighting() {
+            const intensity = environment.lightIntensity / 100;
+            sun.intensity = intensity * 2;
+            
+            // Update sky color based on light intensity
+            const skyColor = new THREE.Color().setHSL(0.6, 0.3, 0.3 + intensity * 0.4);
+            scene.background = skyColor;
+        }
+        
+        function updateEnvironmentalEffects() {
+            // Update thermal effects based on temperature
+            bricks.forEach(brick => {
+                brick.children.forEach(child => {
+                    if (child.children) {
+                        child.children.forEach(thermalEffect => {
+                            if (thermalEffect.children && thermalEffect.children.length > 0) {
+                                thermalEffect.children.forEach(particle => {
+                                    if (particle.material && particle.material.transparent) {
+                                        const baseOpacity = environment.temperature > 30 ? 0.6 : 0.3;
+                                        particle.material.opacity = baseOpacity * (environment.temperature / 45);
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+        }
+        
+        function updateTimeOfDay() {
+            timeOfDay += 0.01; // Slow time progression
+            if (timeOfDay > 24) timeOfDay = 0;
+            
+            const hours = Math.floor(timeOfDay);
+            const minutes = Math.floor((timeOfDay - hours) * 60);
+            document.getElementById('sim-time').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            
+            // Update sun position based on time
+            const sunAngle = (timeOfDay / 24) * Math.PI * 2 - Math.PI / 2;
+            sun.position.x = Math.cos(sunAngle) * 15;
+            sun.position.y = Math.sin(sunAngle) * 15 + 5;
+            sun.position.z = 5;
+            
+            // Update sun indicator
+            let sunPhase;
+            if (timeOfDay >= 6 && timeOfDay < 12) sunPhase = 'Bình minh';
+            else if (timeOfDay >= 12 && timeOfDay < 18) sunPhase = 'Cao điểm';
+            else if (timeOfDay >= 18 && timeOfDay < 20) sunPhase = 'Hoàng hôn';
+            else sunPhase = 'Đêm';
+            
+            document.getElementById('sun-indicator').textContent = `☀️ Mặt trời: ${sunPhase}`;
+            
+            // Adjust lighting based on time of day
+            const dayIntensity = Math.max(0.1, Math.sin(sunAngle + Math.PI / 2));
+            sun.intensity = (environment.lightIntensity / 100) * dayIntensity * 2;
+        }
+        
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+            
+            const time = Date.now() * 0.001;
+            
+            // Camera orbit animation
+            const radius = 12;
+            const speed = 0.1;
+            camera.position.x = Math.cos(time * speed) * radius;
+            camera.position.z = Math.sin(time * speed) * radius;
+            camera.position.y = 6 + Math.sin(time * speed * 0.5) * 2;
+            camera.lookAt(0, 0, 0);
+            
+            // Update time of day
+            updateTimeOfDay();
+            
+            // Animate thermal particles
+            bricks.forEach(brick => {
+                brick.children.forEach(child => {
+                    if (child.children) {
+                        child.children.forEach(thermalGroup => {
+                            if (thermalGroup.children && thermalGroup.children.length > 0) {
+                                thermalGroup.children.forEach(particle => {
+                                    if (particle.userData && particle.userData.speed) {
+                                        particle.position.y += particle.userData.speed;
+                                        particle.position.y += Math.sin(time * 2 + particle.position.x) * 0.002;
+                                        
+                                        // Reset particle when it goes too high
+                                        if (particle.position.y > particle.userData.initialY + 3) {
+                                            particle.position.y = particle.userData.initialY;
+                                        }
+                                        
+                                        // Animate opacity
+                                        if (particle.material && particle.material.transparent) {
+                                            particle.material.opacity = 
+                                                (0.3 + Math.sin(time * 3 + particle.position.x) * 0.2) * 
+                                                (environment.temperature / 45);
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Animate algae particles
+            bricks.forEach(brick => {
+                brick.traverse((child) => {
+                    if (child.material && child.material.emissive) {
+                        const baseIntensity = developmentData[currentDay].algaeDensity / 500;
+                        child.material.emissive.setScalar(
+                            baseIntensity + Math.sin(time * 2 + child.position.x) * baseIntensity * 0.5
+                        );
+                    }
+                    
+                    // Subtle movement for algae
+                    if (child.parent && child.parent.material && child.parent.material.color) {
+                        if (child.parent.material.color.g > 0.5) { // Green algae
+                            child.rotation.y += 0.01;
+                            child.position.y += Math.sin(time * 1.5 + child.position.x) * 0.001;
+                        }
+                    }
+                });
+            });
+            
+            // Update wind effects
+            const windEffect = environment.windSpeed / 20;
+            bricks.forEach((brick, index) => {
+                brick.rotation.y = Math.sin(time + index) * windEffect * 0.02;
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Initialize the simulation
+        init();
+        
+        // Initial statistics update
+        setTimeout(() => {
+            updateStatistics();
+        }, 100);
+    </script>
+</body>
+</html>
